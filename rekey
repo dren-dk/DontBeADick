@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Bin $Script);
+use Fcntl qw(:flock SEEK_END);
+use POSIX;
+
+
+use lib $Bin;
+use Cammy;
+
+init("$Bin/config.pl");
+
+my $ram = cfgRAM;
+my $disk = cfgLocalStorage;
+
+my $currentPassphraseFile = "$ram/current-passphrase";
+open P, ">>$currentPassphraseFile" or die "Failed to write passphrase to $currentPassphraseFile: $!";
+flock(P, LOCK_EX);
+
+my $keyTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
+
+open URANDOM, "/dev/urandom" or die "Failed to read /dev/urandom: $!";
+my $binPassphrase;
+read(URANDOM, $binPassphrase, 64) == 64 or die "Failed to read from urandom: $!";
+close URANDOM;
+
+my $passphrase = unpack("H*", $binPassphrase);
+
+truncate(P,0);
+
+# Make a note of the key time so the write script knows where to dump the output
+open KT, ">$ram/key-time" or die "Urgh: $!";
+print KT $keyTime;
+close KT;
+
+# Split the key into parts
+my $dir = "$disk/$keyTime";
+
+my @board = cfgBoard;
+my $quorum = cfgQuorum;
+my $parts = scalar(@board);
+
+my $cmd = qq!cat $currentPassphraseFile | ssss-split -t $quorum -n $parts -q -Q -w "$keyTime"!;
+
+print "Splitting passphrase using: $cmd\n";
+my $partLines =  qx"$cmd";
+print "$partLines\n";
+
+
+# Finally write the passphrase and close the file to release the file lock.
+print P $passphrase;
+close P;
+
