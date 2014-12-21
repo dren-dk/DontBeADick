@@ -9,7 +9,7 @@ use POSIX;
 use lib $Bin;
 use Cammy;
 
-init("$Bin/config.pl");
+init("$ENV{HOME}/.dont-be-a-dick.config");
 
 my $ram = cfgRAM;
 my $disk = cfgLocalStorage;
@@ -28,6 +28,7 @@ close URANDOM;
 my $passphrase = unpack("H*", $binPassphrase);
 
 truncate(P,0);
+print P $passphrase;
 
 # Make a note of the key time so the write script knows where to dump the output
 open KT, ">$ram/key-time" or die "Urgh: $!";
@@ -36,19 +37,41 @@ close KT;
 
 # Split the key into parts
 my $dir = "$disk/$keyTime";
+mkdir $dir;
 
 my @board = cfgBoard;
 my $quorum = cfgQuorum;
 my $parts = scalar(@board);
 
-my $cmd = qq!cat $currentPassphraseFile | ssss-split -t $quorum -n $parts -q -Q -w "$keyTime"!;
+my $ssssDir = cfgSSSS();
+
+my $cmd = qq!cat $currentPassphraseFile | $ssssDir/ssss-split -t $quorum -n $parts -q -Q -w "$keyTime"!;
 
 print "Splitting passphrase using: $cmd\n";
 my $partLines =  qx"$cmd";
-print "$partLines\n";
 
+my @parts = split /\n/, $partLines;
+die "Failed to get the correct number of lines from '$partLines' ".scalar(@parts)." != $parts" unless @parts == $parts;
+
+my $keydir = "$dir/keys";
+mkdir $keydir;
+
+for my $pn (0..$parts-1) {
+    my $bm = $board[$pn];    
+    my $part = $parts[$pn];
+    my $pf = "$currentPassphraseFile.$pn";
+    open PF, ">$pf" or die "Failed to write passphrase part $pn to $pf:$!";
+    print PF $part;
+    close PF;
+
+    my $ek = "$keydir/$bm";
+    my $gpgcmd = "gpg --batch --passphrase-fd 0 --armor --encrypt --recipient '$bm' --output='$ek' '$pf'";
+    print "Running $gpgcmd\n";
+    open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
+    print PP cfgGPGPassPhrase;
+    close PP;
+}
 
 # Finally write the passphrase and close the file to release the file lock.
-print P $passphrase;
 close P;
 
