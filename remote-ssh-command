@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Script);
+
+# This script restricts which commands the crypto-box can run on this storage server
+# it's important to prevent the crypto-box from gaining shell access, because
+# it would be able to delete the stored evidence, thus negating the reason for having
+# a remote storage server in the first place.
+
+# Add this script to the authorized_keys file like this:
+# from="your-source-host.example.com",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-ptycommand="/home/remoteuser/remote-ssh-command" ssh-rsa ... 
+
+# Then run debug=1 ./push-remote on the crypto-box and examine the log files produced
+# by this script, then edit the regular expression to match only the needed command.
+
+my ($sip, $sport, $tip, $tport) = split /\s/, $ENV{SSH_CONNECTION};
+
+my $cmd = $ENV{SSH2_ORIGINAL_COMMAND} || $ENV{SSH_ORIGINAL_COMMAND} || $ARGV[0];
+if (!$cmd) {
+    print STDERR "Fail!";
+    exit 44;
+}
+
+if ($cmd =~ m!^rsync --server -v*blogDtpre\.iLsf \. $!) {
+    exec $cmd or print STDERR "Fail!!!";
+
+    open FAIL ">>$Bin/$Script.exec-fail.log";
+    print FAIL localhost.
+	"\t$sip:$sport\t$cmd\t$!\n";
+    close FAIL;
+
+} else {
+    open FAIL ">>$Bin/$Script.fail.log";
+    print FAIL localhost.
+	"\t$sip:$sport\t$cmd\n";
+    close FAIL;
+
+    print STDERR "Fail!!";
+    exit 42;
+}

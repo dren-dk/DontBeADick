@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Bin $Script);
+use Fcntl qw(:flock SEEK_END);
+use POSIX;
+use File::Path;
+
+use lib $Bin;
+use Cammy;
+
+init("$ENV{HOME}/.dont-be-a-dick.config");
+my $ram = cfgRAM;
+my $disk = cfgLocalStorage;
+my @remote = cfgRemoteStorage;
+
+open T, "<$ram/key-time" or die "Failed to read $ram/key-time: $!";
+my $keyTime = <T>;
+close T;
+
+# Start a process for each remote target, which never exits.
+
+remote: for my $remote (@remote) {
+    unless ($remote =~ m!/$!) {
+	print STDERR "Ignoring invalid rsync target, it should have a trailing /: $remote\n";
+	next;
+    }
+
+    unless ($ENV{debug}) {
+	next if fork;
+    }
+
+    my $lockName = $remote;
+    $lockName =~ s![^a-zA-Z0-9.-]+!_!g;
+    my $lf = "$ram/.$lockName";
+    
+    open L, ">>$lf" or die "Failed to open lockfile $lf: $!";
+    exit 0 unless flock(L, LOCK_EX | LOCK_NB); # Bail out if this process is alreay running
+    unless ($ENV{debug}) {
+	my $keyTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
+	close STDERR;
+	close STDOUT;
+	close STDIN;
+	
+	open STDERR, ">>$disk/logs/$lockName-$keyTime.log";
+	open STDOUT, ">>$disk/logs/$lockName-$keyTime.log";
+    }
+    
+    # TODO: Perhaps we should look into letting lsyncd invoke rsync to avoid polling rsync like this. 
+
+    print STDERR "Starting rsync process targeting $remote\n";
+    while (1) {
+	my $verbose = $ENV{debug} ? 'vv' : '';
+	system('nice', 'rsync', "-rat$verbose", '--exclude=lost+found', "$disk/", $remote) and die "Failed to rsync to $remote";
+	next remote if $ENV{debug};
+
+	sleep 10; # Chill for a little while to avoid burning all the CPU and to allow some batching
+	
+	open T, "<$ram/key-time" or die "Failed to read $ram/key-time: $!";
+	my $newKeyTime = <T>;
+	close T;
+
+	exit 0 if $newKeyTime ne $keyTime; # There was a new key, so bail out to allow log rotation
+    }	
+}
+
+exit 0;

@@ -19,6 +19,13 @@ my $ram = cfgRAM;
 my $disk = cfgLocalStorage;
 
 my $currentPassphraseFile = "$ram/current-passphrase";
+
+if (!-f $currentPassphraseFile) {
+    system("$Bin/rekey") and die "Failed to create the missing key";
+    die "Failed to create the missing key: $currentPassphraseFile"
+	unless -f $currentPassphraseFile;
+}
+
 open P, "<$currentPassphraseFile" or die "Failed to read current passphrase from $currentPassphraseFile: $!";
 flock(P, LOCK_SH);
 

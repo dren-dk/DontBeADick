@@ -1,7 +1,7 @@
 package Cammy;
 require Exporter;
 @ISA=qw(Exporter);
-@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgQuorum cfgGPGPassPhrase cfgSSSS);
+@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS);
 
 use strict;
 use warnings;
@@ -17,7 +17,7 @@ sub init {
     close CF;
     $config = eval $configContent;
 
-    for my $k (qw(board ram disk quorum ssss gpgpass)) {
+    for my $k (qw(board ram disk quorum ssss gpgpass remote)) {
 	die "Missing option: $k in ".Dumper $config unless $config->{$k};
     }
 }
@@ -36,6 +36,10 @@ sub cfgRAM {
 
 sub cfgLocalStorage {
     return $config->{disk};
+}
+
+sub cfgRemoteStorage {
+    return @{$config->{remote}};
 }
 
 sub cfgQuorum {

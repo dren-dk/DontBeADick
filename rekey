@@ -15,8 +15,15 @@ my $ram = cfgRAM;
 my $disk = cfgLocalStorage;
 
 my $currentPassphraseFile = "$ram/current-passphrase";
+my $ppAge = -f $currentPassphraseFile ? time-(stat $currentPassphraseFile)[9] : -1;
+
 open P, ">>$currentPassphraseFile" or die "Failed to write passphrase to $currentPassphraseFile: $!";
 flock(P, LOCK_EX);
+
+if ($ppAge < 60 && $ppAge >= 0) {
+    print STDERR "Refusing to generate a new key, because the current one is $ppAge seconds old\n";
+    exit 0; 
+} 
 
 my $keyTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
 
