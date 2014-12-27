@@ -39,7 +39,7 @@ my $of = "$dir/$camera-$imageTime.jpeg.gpg";
 exit 0 if -f $of; # Don't rewrite the last image captured, just bail out in case of crazy frame rate.
 
 
-my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --output='$of' '$input'";
+my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --cipher-algo aes256 --output='$of' '$input'";
 print "Running $gpgcmd\n";
 open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
 print PP cfgGPGPassPhrase;
