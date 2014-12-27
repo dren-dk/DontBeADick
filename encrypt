@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Bin $Script);
+use Fcntl qw(:flock SEEK_END);
+use POSIX;
+use File::Path;
+
+use lib $Bin;
+use Cammy;
+
+init("$ENV{HOME}/.dont-be-a-dick.config");
+
+my ($camera, $input) = @ARGV;
+die "Syntax: $Script <camera> <input>" unless $input and -f $input;
+die "Bad camera name: '$camera'" unless $camera =~ /^[a-zA-Z0-9-]+$/;
+
+my $ram = cfgRAM;
+my $disk = cfgLocalStorage;
+
+my $currentPassphraseFile = "$ram/current-passphrase";
+open P, "<$currentPassphraseFile" or die "Failed to read current passphrase from $currentPassphraseFile: $!";
+flock(P, LOCK_SH);
+
+my $passPhrase = <P>;
+
+open T, "<$ram/key-time" or die "Failed to read key-time: $!";
+my $keyTime = <T>;
+close T;
+
+close P;
+
+
+my $dir = "$disk/$keyTime/$camera";
+mkpath $dir unless -d $dir;
+my $imageTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
+my $of = "$dir/$camera-$imageTime.jpeg.gpg";
+
+exit 0 if -f $of; # Don't rewrite the last image captured, just bail out in case of crazy frame rate.
+
+
+my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --output='$of' '$input'";
+print "Running $gpgcmd\n";
+open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
+print PP cfgGPGPassPhrase;
+close PP;

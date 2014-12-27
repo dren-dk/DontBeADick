@@ -65,13 +65,13 @@ for my $pn (0..$parts-1) {
     close PF;
 
     my $ek = "$keydir/$bm";
-    my $gpgcmd = "gpg --batch --passphrase-fd 0 --armor --encrypt --recipient '$bm' --output='$ek' '$pf'";
+    my $gpgcmd = "gpg --batch --passphrase-fd 0 --armor --encrypt --recipient '$bm' --output='$ek.$pn' '$pf'";
     print "Running $gpgcmd\n";
     open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
     print PP cfgGPGPassPhrase;
     close PP;
 }
 
-# Finally write the passphrase and close the file to release the file lock.
+# Finally close the file to release the file lock.
 close P;
 
