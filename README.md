@@ -91,3 +91,49 @@ Configuration of the encryption scripts
 Copy config.pl to ~/.dont-be-a-dick.config and edit it to match your installation,
 nothing will work unless you understand and edit every single value.
 
+
+Camera
+======
+
+Search for 1mp onvif ip camera on ebay and you will find a bunch of cameras such ash this: 
+http://www.ebay.com/itm/CCTV-1MP-1280X720P-H264-P2P-36-LEDs-Waterproof-Outdoor-Security-IP-Camera-Onvif-/171436984448?pt=AU_Home_Personal_Security&hash=item27ea70c880
+
+... that output h.264 over rtsp with a configurable frame rate and quality, which is much more effcient than
+jpeg over http, which is often used by simpler cameras.
+
+Unfortunately the software for this camera is utter shit and rather than implement a simple web UI for configuring
+the camera, a special 32 bit windows application is needed and it only works with IE.
+
+MS offers virtual machines for download that run 32bit IE, it seems windows 7 with IE 11 works with the shitty
+camera configuration software: 
+https://www.modern.ie/en-us/virtualization-tools
+
+
+Building Motion
+===============
+
+The main stream version of Motion doesn't support streaming, unfortunatly many modern IP cameras only output
+an h.264 stream via rtsp, so an alternative version of motion must be used with the needed support.
+
+This page discusses the solution (bottom answer):
+http://askubuntu.com/questions/514828/how-can-i-access-the-h264-stream-from-my-ip-cam-with-motion
+
+
+First download, compile and install ffmpeg:
+./configure --prefix=/opt/ffmpeg --disable-swresample && make && sudo make install
+
+
+Then clone, patch and compile motion:
+git clone git@github.com:dren-dk/motion.git
+
+CFLAGS=-g ./configure --with-ffmpeg=/opt/ffmpeg/lib --with-ffmpeg-headers=/opt/ffmpeg/include
+CFLAGS=-g make
+
+
+Motion Keepalive
+================
+
+Motion likes to hang forever in stead of re-connecting to RTSP if any sort of problem (like camera reboot)
+causes the stream to stop, so something more reliable is needed to take it out behind the barn when
+it starts sulking and start it again.
+
