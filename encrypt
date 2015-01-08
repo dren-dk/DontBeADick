@@ -11,11 +11,26 @@ use Cammy;
 
 init("$ENV{HOME}/.dont-be-a-dick.config");
 
-my ($camera, $input) = @ARGV;
+my ($camera, $input, $event) = @ARGV;
 die "Syntax: $Script <camera> <input>" unless $input and -f $input;
 die "Bad camera name: '$camera'" unless $camera =~ /^[a-zA-Z0-9-]+$/;
+$event ||= '';
+
+print STDERR "Input: $input\n";
 
 my $ram = cfgRAM;
+
+
+# Bail out if there's already a running encryption process, this avoids wasting CPU
+# only to discover the duplication later on
+open EL, ">>$ram/.$camera.encrypt" or die "Failed to open camera lock: $!";
+unless (flock(EL, LOCK_EX|LOCK_NB)) {
+    #print STDERR "Bailing out, there's still a running encryption process\n";
+    unlink $input or die "Failed to delete input file: $input";
+    exit 0;
+}
+
+
 my $disk = cfgLocalStorage;
 
 my $currentPassphraseFile = "$ram/current-passphrase";
@@ -43,11 +58,15 @@ mkpath $dir unless -d $dir;
 my $imageTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
 my $of = "$dir/$camera-$imageTime.jpeg.gpg";
 
-exit 0 if -f $of; # Don't rewrite the last image captured, just bail out in case of crazy frame rate.
 
+# Don't rewrite the last image captured, just bail out in case of crazy frame rate.
+unless (-f $of) {
+    my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --cipher-algo aes256 --output='$of' '$input'";
+    #print "Running $gpgcmd\n";
+    open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
+    print PP cfgGPGPassPhrase;
+    close PP;
+}
 
-my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --cipher-algo aes256 --output='$of' '$input'";
-print "Running $gpgcmd\n";
-open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
-print PP cfgGPGPassPhrase;
-close PP;
+unlink $input or die "Failed to delete input file: $input";
+exit 0;
