@@ -11,12 +11,9 @@ use Cammy;
 
 init("$ENV{HOME}/.dont-be-a-dick.config");
 
-my ($camera, $input, $event) = @ARGV;
+my ($camera, $input) = @ARGV;
 die "Syntax: $Script <camera> <input>" unless $input and -f $input;
 die "Bad camera name: '$camera'" unless $camera =~ /^[a-zA-Z0-9-]+$/;
-$event ||= '';
-
-print STDERR "Input: $input\n";
 
 my $ram = cfgRAM;
 

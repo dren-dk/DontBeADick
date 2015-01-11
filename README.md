@@ -95,7 +95,7 @@ nothing will work unless you understand and edit every single value.
 Camera
 ======
 
-Search for 1mp onvif ip camera on ebay and you will find a bunch of cameras such ash this: 
+Search for 1mp onvif ip camera on ebay and you will find a bunch of cameras such as this: 
 http://www.ebay.com/itm/CCTV-1MP-1280X720P-H264-P2P-36-LEDs-Waterproof-Outdoor-Security-IP-Camera-Onvif-/171436984448?pt=AU_Home_Personal_Security&hash=item27ea70c880
 
 ... that output h.264 over rtsp with a configurable frame rate and quality, which is much more effcient than
@@ -120,7 +120,7 @@ http://askubuntu.com/questions/514828/how-can-i-access-the-h264-stream-from-my-i
 
 
 First download, compile and install ffmpeg:
-./configure --prefix=/opt/ffmpeg --disable-swresample && make && sudo make install
+./configure --prefix=/opt/ffmpeg --di./motion -c motion-rtsp.confsable-swresample && make && sudo make install
 
 
 Then clone, patch and compile motion:

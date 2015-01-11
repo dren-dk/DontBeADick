@@ -29,4 +29,23 @@
 
     # Remote target dirs to rsync the files from local storage to
     remote=>['dumbo:/mnt/data/photos/dbad/', 'hal.osaa.dk:storage/'],
+
+    # The directory where motion was built
+    motion=>'/home/ff/projects/motion',
+    
+    # The camera configurations, each camera name maps to a hash of motion config options
+    camera=>{
+	cam1=>{
+	    netcam_url=> 'rtsp://10.0.0.213/user=admin_password=tlJwpbo6_channel=1_stream=0.sdp',
+	},
+
+	cam2=>{
+	    netcam_url=> 'rtsp://10.0.0.216/user=admin_password=tlJwpbo6_channel=1_stream=0.sdp',
+	},
+
+	cam3=>{
+	    netcam_url => 'rtsp://10.0.0.212:554/H264',
+	    netcam_userpass => 'admin:admin',
+	},
+    },
 }

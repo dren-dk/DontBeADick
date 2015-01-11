@@ -1,7 +1,7 @@
 package Cammy;
 require Exporter;
 @ISA=qw(Exporter);
-@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS);
+@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS cfgMotion cfgCamera);
 
 use strict;
 use warnings;
@@ -17,7 +17,7 @@ sub init {
     close CF;
     $config = eval $configContent;
 
-    for my $k (qw(board ram disk quorum ssss gpgpass remote)) {
+    for my $k (qw(board ram disk quorum ssss gpgpass remote motion camera)) {
 	die "Missing option: $k in ".Dumper $config unless $config->{$k};
     }
 }
@@ -52,6 +52,15 @@ sub cfgSSSS {
 
 sub cfgGPGPassPhrase {
     return $config->{gpgpass};
+}
+
+sub cfgMotion {
+    return $config->{motion};
+}
+
+sub cfgCamera {
+    my ($name) = @_;
+    return $config->{camera}{$name};
 }
 
 1;
