@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Bin $Script);
+use Fcntl qw(:flock SEEK_END);
+use lib $Bin;
+use Cammy;
+
+init("$ENV{HOME}/.dont-be-a-dick.config");
+
+my $motion = cfgMotion;
+my $ram = cfgRAM;
+
+my ($camName) = @ARGV;
+die "$Script <camera>" unless $camName;m
+my $camCfg = cfgCamera($camName) or die "Invalid camera: $camName";
+
+my $tmpDir = "$ram/motion/$camera";
+my $motionCfg = "$tmpDir/motion.cfg";
+mkpath "$tmpDir/img";
+
+while (1) {
+    my $currentPassphraseFile = "$ram/current-passphrase";
+
+    if (!-f $currentPassphraseFile) {
+	system("$Bin/rekey") and die "Failed to create the missing key";
+	die "Failed to create the missing key: $currentPassphraseFile"
+	    unless -f $currentPassphraseFile;
+    }
+
+    open P, "<$currentPassphraseFile" or die "Failed to read current passphrase from $currentPassphraseFile: $!";
+    flock(P, LOCK_SH);
+
+    open T, "<$ram/key-time" or die "Failed to read key-time: $!";
+    my $keyTime = <T>;
+    close T;
+
+    close P;
+    
+    my $logDir = "$disk/$keyTime/$camera";
+    mkpath $logDir unless -d $logDir;
+
+    my %cfg = (
+	daemon=>'on',
+	process_id_file =>"$tmpDir/motion.pid",
+	logfile =>"$logDir/motion.log",	
+	rotate => 0,
+	framerate => 2,
+	minimum_frame_time => 1,
+
+	
+	threshold=> 1500,
+	threshold_tune => 'off',
+	noise_level => 32,
+	noise_tune => 'on',
+	despeckle_filter 0> 'EedDl',
+	minimum_motion_frames =>1,	
+	pre_capture =>2,
+	post_capture => 2,
+	event_gap => 60,
+
+	output_pictures => 'on',
+
+	snapshot_interval => 60,	
+	text_left=>$camName,
+	text_double =>'on',
+	
+	target_dir => "$tmpDir/img",
+
+	snapshot_filename => "%v-%Y%m%d%H%M%S-snapshot",
+	picture_filename => "%v-%Y%m%d%H%M%S-%q",
+	on_picture_save => "$Bin/encrypt $camName %f",
+	
+	);
+
+    for my $k (keys %$camCfg) {
+	$cfg{$k} = $camCfg{$k};
+    } 
+
+    # TODO: Write $motionCfg
+
+    
+    motion -c motion-rtsp.conf
+}
+
