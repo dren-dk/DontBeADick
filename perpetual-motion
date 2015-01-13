@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use FindBin qw($Bin $Script);
 use Fcntl qw(:flock SEEK_END);
+use File::Path;
 use lib $Bin;
 use Cammy;
 
@@ -10,17 +11,72 @@ init("$ENV{HOME}/.dont-be-a-dick.config");
 
 my $motion = cfgMotion;
 my $ram = cfgRAM;
+my $disk = cfgLocalStorage;
 
 my ($camName) = @ARGV;
-die "$Script <camera>" unless $camName;m
+die "$Script <camera>" unless $camName;
 my $camCfg = cfgCamera($camName) or die "Invalid camera: $camName";
 
-my $tmpDir = "$ram/motion/$camera";
+my $tmpDir = "$ram/motion/$camName";
 my $motionCfg = "$tmpDir/motion.cfg";
+my $pidFile = "$tmpDir/motion.pid";
 mkpath "$tmpDir/img";
 
+my $currentPassphraseFile = "$ram/current-passphrase";
+
+my $maxAge = 10;
 while (1) {
-    my $currentPassphraseFile = "$ram/current-passphrase";
+    my $mtime = (stat $pidFile)[9];
+    my $ok = 1;
+    my $age = time;
+    if ($mtime) {
+	open PID, "<$pidFile" or die "Failed to read $pidFile: $!";
+	my $pid = <PID>;
+	close PID;
+	chomp $pid if $pid;	    
+	
+	if (!$pid or !-d "/proc/$pid") {
+	    $ok = 0;
+	} else {
+	    
+	    $age -= $mtime;
+	    print STDERR "$age/$maxAge\n";
+	    
+	    if ($age > $maxAge) {
+		print STDERR "$camName motion hung, killing it until it's dead\n";
+		my $patience = 20;
+		while ($patience-- and kill 'QUIT', $pid) { # Please go away
+		    print STDERR "quit ";
+		    sleep 1;
+		}
+		
+		while (kill 'KILL', $pid) { # DIAF
+		    print STDERR "kill ";
+		    sleep 1;
+		}
+		
+		print STDERR "Killed $pid\n";
+		unlink $pidFile;
+		$ok = 0;
+	    } else {
+		# Time is ok
+	    }
+
+	}
+    } else {
+	$ok = 0; # The pid file doesn't exist
+    }
+	    
+    if ($ok) {
+	sleep 1; # The daemon is running, everything is fine, don't burn all the CPU looking for it.
+	$maxAge = 20 if $age < 2;
+	next;
+    }
+
+    
+    # If we get this far, then the daemon has stopped and needs to be restarted.
+    
+    print STDERR "Motion isn't running, starting it...\n";
 
     if (!-f $currentPassphraseFile) {
 	system("$Bin/rekey") and die "Failed to create the missing key";
@@ -30,19 +86,19 @@ while (1) {
 
     open P, "<$currentPassphraseFile" or die "Failed to read current passphrase from $currentPassphraseFile: $!";
     flock(P, LOCK_SH);
-
+    
     open T, "<$ram/key-time" or die "Failed to read key-time: $!";
     my $keyTime = <T>;
     close T;
-
+    
     close P;
     
-    my $logDir = "$disk/$keyTime/$camera";
+    my $logDir = "$disk/$keyTime/$camName";
     mkpath $logDir unless -d $logDir;
-
+    
     my %cfg = (
 	daemon=>'on',
-	process_id_file =>"$tmpDir/motion.pid",
+	process_id_file =>$pidFile,
 	logfile =>"$logDir/motion.log",	
 	rotate => 0,
 	framerate => 2,
@@ -53,7 +109,7 @@ while (1) {
 	threshold_tune => 'off',
 	noise_level => 32,
 	noise_tune => 'on',
-	despeckle_filter 0> 'EedDl',
+	despeckle_filter => 'EedDl',
 	minimum_motion_frames =>1,	
 	pre_capture =>2,
 	post_capture => 2,
@@ -69,17 +125,41 @@ while (1) {
 
 	snapshot_filename => "%v-%Y%m%d%H%M%S-snapshot",
 	picture_filename => "%v-%Y%m%d%H%M%S-%q",
-	on_picture_save => "$Bin/encrypt $camName %f",
-	
+	on_picture_save => "$Bin/encrypt '$camName' %f",
 	);
 
     for my $k (keys %$camCfg) {
-	$cfg{$k} = $camCfg{$k};
+
+	if ($k eq 'size') {
+	    my $s = $camCfg->{$k};
+	    if ($s eq '720p') {
+		$s = "1280x720";
+	    } elsif ($s eq '1080p') {
+		$s = "1920x1080";
+	    }
+	    ($cfg{width}, $cfg{height}) = split /x/, $s;
+ 	} else {
+	    $cfg{$k} = $camCfg->{$k};
+	}
     } 
 
-    # TODO: Write $motionCfg
-
+    print STDERR "Calculated configuration for $camName:\n";
+    open C, ">$motionCfg" or die "Failed to write $motionCfg: $!";
+    for my $k (sort keys %cfg) {
+	print STDERR "$k=$cfg{$k}\n";
+	print C "$k=$cfg{$k}\n";
+    }
+    close C;
     
-    motion -c motion-rtsp.conf
+    # Daemon not running.
+    system("$motion/motion", "-c", $motionCfg) and die "Failed to start motion with $motionCfg";
+    print STDERR "Waiting for pid file $pidFile ";
+    while (!-f $pidFile) {
+	print STDERR ".";
+	sleep 1;
+    }
+    print STDERR "Ok\n";
+    sleep 3;
+    $maxAge = 60;
 }
 
