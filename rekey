@@ -77,6 +77,8 @@ for my $pn (0..$parts-1) {
     open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
     print PP cfgGPGPassPhrase;
     close PP;
+
+    die "Failed to encrypt passphrase part $pf for $bm, the file $ek.$pn doesn't exist" unless -f "$ek.$pn";
 }
 
 # Finally close the file to release the file lock.

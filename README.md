@@ -102,7 +102,7 @@ http://www.ebay.com/itm/CCTV-1MP-1280X720P-H264-P2P-36-LEDs-Waterproof-Outdoor-S
 jpeg over http, which is often used by simpler cameras.
 
 Unfortunately the software for this camera is utter shit and rather than implement a simple web UI for configuring
-the camera, a special 32 bit windows application is needed and it only works with IE.
+the camera, a "special" 32 bit windows application is needed and it only works with IE.
 
 MS offers virtual machines for download that run 32bit IE, it seems windows 7 with IE 11 works with the shitty
 camera configuration software: 
@@ -115,19 +115,21 @@ Building Motion
 The main stream version of Motion doesn't support streaming, unfortunatly many modern IP cameras only output
 an h.264 stream via rtsp, so an alternative version of motion must be used with the needed support.
 
-This page discusses the solution (bottom answer):
-http://askubuntu.com/questions/514828/how-can-i-access-the-h264-stream-from-my-ip-cam-with-motion
+
+First download, compile and install ffmpeg into /tmp/ffmpeg:
+
+wget http://ffmpeg.org/releases/ffmpeg-2.5.3.tar.bz2 && \
+tar xf ffmpeg-2.5.3.tar.bz2 && \
+cd ffmpeg-2.5.3 && \
+./configure --prefix=/tmp/ffmpeg --disable-swresample && \
+make install
 
 
-First download, compile and install ffmpeg:
-./configure --prefix=/opt/ffmpeg --di./motion -c motion-rtsp.confsable-swresample && make && sudo make install
+Then clone and compile motion:
 
-
-Then clone, patch and compile motion:
-git clone git@github.com:dren-dk/motion.git
-
-CFLAGS=-g ./configure --with-ffmpeg=/opt/ffmpeg/lib --with-ffmpeg-headers=/opt/ffmpeg/include
-CFLAGS=-g make
+git clone https://github.com/dren-dk/motion.git && \
+LDFLAGS='-lrt -pthread' ./configure --with-ffmpeg=/tmp/ffmpeg/lib --with-ffmpeg-headers=/tmp/ffmpeg/include && \
+make
 
 
 Motion Keepalive
