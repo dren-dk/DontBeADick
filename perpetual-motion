@@ -123,8 +123,8 @@ while (1) {
 	
 	target_dir => "$tmpDir/img",
 
-	snapshot_filename => "%v-%Y%m%d%H%M%S-snapshot",
-	picture_filename => "%v-%Y%m%d%H%M%S-%q",
+	snapshot_filename => "%Y%m%d%H%M%S-snapshot",
+	picture_filename => "%Y%m%d%H%M%S-%q",
 	on_picture_save => "$Bin/encrypt '$camName' %f",
 	);
 
