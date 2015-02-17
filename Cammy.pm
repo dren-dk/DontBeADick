@@ -1,7 +1,7 @@
 package Cammy;
 require Exporter;
 @ISA=qw(Exporter);
-@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS cfgMotion cfgCamera);
+@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS cfgMotion cfgCamera cfgCameraNames);
 
 use strict;
 use warnings;
@@ -61,6 +61,10 @@ sub cfgMotion {
 sub cfgCamera {
     my ($name) = @_;
     return $config->{camera}{$name};
+}
+
+sub cfgCameraNames() {
+    return sort keys %{$config->{camera}};
 }
 
 1;

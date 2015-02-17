@@ -7,14 +7,23 @@ use File::Path;
 use lib $Bin;
 use Cammy;
 
+my ($camName, $cmd) = @ARGV;
+die "$Script <camera> (start|softstart|stop|status|test|auto)?" unless $camName && $cmd;
+
 init("$ENV{HOME}/.dont-be-a-dick.config");
+
+if ($camName eq 'all') {
+    my $err = 0;
+    for my $cam (cfgCameraNames) {
+	$err ++ if system("$Bin/$Script", $cam, $cmd);
+    }
+    exit 0;
+}
 
 my $motion = cfgMotion;
 my $ram = cfgRAM;
 my $disk = cfgLocalStorage;
 
-my ($camName) = @ARGV;
-die "$Script <camera>" unless $camName;
 my $camCfg = cfgCamera($camName) or die "Invalid camera: $camName";
 
 my $tmpDir = "$ram/motion/$camName";
@@ -23,6 +32,95 @@ my $pidFile = "$tmpDir/motion.pid";
 mkpath "$tmpDir/img";
 
 my $currentPassphraseFile = "$ram/current-passphrase";
+
+
+my $PIDFILE = "$tmpDir/$Script.pid";
+
+sub daemonIsRunning() {
+    return 0 unless -f $PIDFILE;
+
+    # Note: The + requests read/write access, this is to make it possible to grab the
+    # exclusive lock on Solaris OSX and Linux both follow the original BSD semantics,
+    # so they work fine with pure read-access to the file.
+    open PPID, "+<$PIDFILE" or return 0;
+    my $pid = <PPID>;
+    if ( flock( PPID, LOCK_EX | LOCK_NB ) ) {
+        $pid = 0;    # If we can get the lock the daemon has died.
+        flock( PPID, LOCK_UN );
+    }
+    close PPID;
+    unlink $PIDFILE unless $pid;
+    return $pid;
+}
+
+sub catchZap {
+    my $sig = shift;
+    print "Caught SIG$sig, but staying alive anyway.\n";
+}
+
+my $pid = daemonIsRunning();
+
+if ($cmd eq 'stop') {
+    print STDERR "exiting\n" unless $pid;
+    exit 0 unless $pid;
+
+    print STDERR "Shutting down $Script" unless $ENV{BQ};
+
+    kill 9, $pid;
+    while ( daemonIsRunning() ) {
+        sleep 1;
+        print STDERR ".";
+    }
+    print STDERR " Done\n" unless $ENV{BQ};
+    unlink $PIDFILE;
+    exit 0;
+
+} elsif ( $cmd eq 'status' ) {
+    if ($pid) {
+        print STDERR "$Script for $camName is running with process id: $pid\n" unless $ENV{BQ};
+        exit 0;
+    } else {
+        print STDERR "$Script for $camName is not running\n" unless $ENV{BQ};
+        exit 1;
+    }
+
+} elsif ( $cmd eq 'restart' ) {
+    system("$Bin/$Script stop");
+    system("$Bin/$Script start") and die "Failed while starting";
+
+} elsif ($cmd ne 'start' and $cmd ne 'softstart' and $cmd ne 'test') {
+    die "Syntax: $Script (start|stop|restart|status) (not: $cmd)";
+}
+
+if ($cmd ne 'test') {
+    $SIG{HUP} = $SIG{INT} = \&catchZap;
+
+    if ($cmd eq 'softstart') {
+	exit 0 if $pid;
+    } else {
+	die "Error: Process is already running with pid: $pid." if $pid;
+    }
+
+    # Double fork idiom: avoids leaving a zombie around.
+    if (fork) {
+	print STDERR "$Script has been started see log file for further info\n" unless $ENV{BQ};
+	exit 0;
+    }
+    exit if fork;
+
+    open PPID, "+>$PIDFILE" or die "Unable to write pid file $PIDFILE: $!";
+    seek PPID, 0, 0;
+    print PPID "$$\n";
+    flock(PPID, LOCK_EX) or die "Unable to lock the pid file $PIDFILE";
+
+    my $log       = "$tmpDir/$Script.log";
+    print "Output will continue in $log\n";
+    rename $log,       "$log.old"       if -f $log;
+    open( STDOUT, ">>$log" ) or die "Unable to write to $log: $!";
+    open( STDERR, ">>$log" ) or die "Unable to redirect stderr to $log: $!";
+    close STDIN;
+    $| = 1;
+}
 
 my $maxAge = 10;
 while (1) {
@@ -104,9 +202,9 @@ while (1) {
 	framerate => 2,
 	minimum_frame_time => 1,
 
-	
-	threshold=> 1500,
-	threshold_tune => 'off',
+	locate=>'off',
+	threshold=> 2500,
+	threshold_tune => 'on',
 	noise_level => 32,
 	noise_tune => 'on',
 	despeckle_filter => 'EedDl',

@@ -138,4 +138,3 @@ Motion Keepalive
 Motion likes to hang forever in stead of re-connecting to RTSP if any sort of problem (like camera reboot)
 causes the stream to stop, so something more reliable is needed to take it out behind the barn when
 it starts sulking and start it again.
-
