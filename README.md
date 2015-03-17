@@ -138,3 +138,28 @@ Motion Keepalive
 Motion likes to hang forever in stead of re-connecting to RTSP if any sort of problem (like camera reboot)
 causes the stream to stop, so something more reliable is needed to take it out behind the barn when
 it starts sulking and start it again.
+
+
+
+Assembly of a passphrase and decryption of images
+=================================================
+
+First get the board members to decrypt their encrypted passphrase parts:
+
+gpg --decrypt myfile > myfile.pf
+
+
+Assemble the parts needed for each passphrase:
+
+ssss-combine -t 4 > passphrase
+
+ssss-combine will then prompt for 4 parts, feed it any 4 parts, but chop off the initial timestamp,
+so each part is on the form \d-[0-9a-f]+$
+
+The passphrase will then be written to the passphrase file.
+
+To decrypt the files use:
+gpg --passphrase-fd 0 --decrypt-files */*.gpg  < passphrase
+
+
+

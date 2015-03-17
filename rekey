@@ -4,7 +4,7 @@ use warnings;
 use FindBin qw($Bin $Script);
 use Fcntl qw(:flock SEEK_END);
 use POSIX;
-
+use File::Path;
 
 use lib $Bin;
 use Cammy;
@@ -12,12 +12,17 @@ use Cammy;
 init("$ENV{HOME}/.dont-be-a-dick.config");
 
 my $ram = cfgRAM;
+mkpath $ram unless -d $ram;
 my $disk = cfgLocalStorage;
 
 my $currentPassphraseFile = "$ram/current-passphrase";
 my $ppAge = -f $currentPassphraseFile ? time-(stat $currentPassphraseFile)[9] : -1;
 
-open P, ">>$currentPassphraseFile" or die "Failed to write passphrase to $currentPassphraseFile: $!";
+if (!-f $currentPassphraseFile) {
+    open P, "+>$currentPassphraseFile" or die "Failed to write passphrase to $currentPassphraseFile: $!";
+} else {
+    open P, "+<$currentPassphraseFile" or die "Failed to write passphrase to $currentPassphraseFile: $!";
+}
 flock(P, LOCK_EX);
 
 if ($ppAge < 60 && $ppAge >= 0) {
@@ -72,7 +77,7 @@ for my $pn (0..$parts-1) {
     close PF;
 
     my $ek = "$keydir/$bm";
-    my $gpgcmd = "gpg --batch --passphrase-fd 0 --armor --encrypt --recipient '$bm' --output='$ek.$pn' '$pf'";
+    my $gpgcmd = "gpg --lock-never --batch --passphrase-fd 0 --armor --encrypt --recipient '$bm' --output='$ek.$pn' '$pf'";
     print "Running $gpgcmd\n";
     open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
     print PP cfgGPGPassPhrase;

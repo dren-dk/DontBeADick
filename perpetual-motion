@@ -138,7 +138,7 @@ while (1) {
 	} else {
 	    
 	    $age -= $mtime;
-	    print STDERR "$age/$maxAge\n";
+	    #print STDERR "$age/$maxAge\n";
 	    
 	    if ($age > $maxAge) {
 		print STDERR "$camName motion hung, killing it until it's dead\n";
@@ -202,9 +202,8 @@ while (1) {
 	framerate => 2,
 	minimum_frame_time => 1,
 
-	locate=>'off',
-	threshold=> 2500,
-	threshold_tune => 'on',
+	threshold=> 5000,
+	threshold_tune => 'off',
 	noise_level => 32,
 	noise_tune => 'on',
 	despeckle_filter => 'EedDl',

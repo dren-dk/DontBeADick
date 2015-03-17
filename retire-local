@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin qw($Bin $Script);
+use Fcntl qw(:flock SEEK_END);
+use POSIX;
+
+use lib $Bin;
+use Cammy;
+
+init("$ENV{HOME}/.dont-be-a-dick.config");
+
+my $disk = cfgLocalStorage;
+
+retire($disk);

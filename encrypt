@@ -5,9 +5,13 @@ use FindBin qw($Bin $Script);
 use Fcntl qw(:flock SEEK_END);
 use POSIX;
 use File::Path;
+use File::Copy;
 
 use lib $Bin;
 use Cammy;
+
+# If nothing happens for this long on both sides of a snapshot, the snapshot is stored in plain text
+my $QUIET_PERIOD = 120; 
 
 init("$ENV{HOME}/.dont-be-a-dick.config");
 
@@ -56,14 +60,41 @@ my $imageTime = strftime("%Y-%m-%d-%H-%M-%S", localtime);
 my $of = "$dir/$camera-$imageTime.jpeg.gpg";
 
 
+
 # Don't rewrite the last image captured, just bail out in case of crazy frame rate.
 unless (-f $of) {
     my $gpgcmd = "gpg --batch --passphrase-fd 0 --symmetric --cipher-algo aes256 --output='$of' '$input'";
     #print "Running $gpgcmd\n";
     open PP, "|$gpgcmd" or die "Failed to run\n$gpgcmd\n$!";
-    print PP cfgGPGPassPhrase;
+    print PP $passPhrase;
     close PP;
 }
 
-unlink $input or die "Failed to delete input file: $input";
+
+my $quiet     = "$ram/last/$camera-quiet.jpeg";
+my $veryQuiet = "$ram/last/$camera-veryquiet.jpeg";
+mkpath "$ram/last" unless -d "$ram/last";
+if ($input =~ /snapshot/) {
+    if (-f $quiet) {
+	my $age = time-(stat($quiet))[9];
+	if ($age > $QUIET_PERIOD*2) {
+	    my $timestamp = (stat($veryQuiet))[9];
+	    my $quietTime = strftime("%Y-%m-%d-%H-%M-%S", localtime($timestamp));
+	    copy $veryQuiet, "$dir/$camera-snapshot-$quietTime.jpeg"; 
+	    rename $veryQuiet, $quiet;
+	} elsif ($age > $QUIET_PERIOD && !-f $veryQuiet) {
+	    copy $input, $veryQuiet;
+	} 
+    } else {
+	copy $input, $quiet; 
+    }
+
+    rename $input, "$ram/last/$camera-snapshot.jpeg";
+        
+} else {    
+    unlink $quiet, $veryQuiet;
+    rename $input, "$ram/last/$camera-movement.jpeg";   
+}
+
+#unlink $input or die "Failed to delete input file: $input";
 exit 0;

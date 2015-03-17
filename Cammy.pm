@@ -1,11 +1,13 @@
 package Cammy;
 require Exporter;
 @ISA=qw(Exporter);
-@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS cfgMotion cfgCamera cfgCameraNames);
+@EXPORT = qw(init config cfgBoard cfgRAM cfgLocalStorage cfgRemoteStorage cfgQuorum cfgGPGPassPhrase cfgSSSS cfgMotion cfgCamera cfgCameraNames retire);
 
 use strict;
 use warnings;
 use Data::Dumper;
+use Filesys::Df;
+use File::Path qw(make_path remove_tree);
 
 my $config;
 sub init {
@@ -65,6 +67,31 @@ sub cfgCamera {
 
 sub cfgCameraNames() {
     return sort keys %{$config->{camera}};
+}
+
+my $MIN_FREE = 150*1024; # The minimum number of free 1kB blocks 
+my $MAX_AGE = 29; # The maximum age of the oldest directory in days.
+
+sub retire {
+    my ($dir) = @_;
+    
+    opendir DIR, $dir or die "Failed to read directory $dir: $!";
+    my @dirs = sort grep {!/^\./} readdir DIR;
+    closedir DIR;
+
+    while (my $goner = shift @dirs) {
+	my $fn = "$dir/$goner";
+	my $mtime = (stat $fn)[9];
+	my $age = (time-$mtime)/(24*60*60);
+	my $free = df $dir;
+
+	print STDERR "$fn: $age days old, free space: $free->{bfree}\n";
+
+	if ($free->{bfree} < $MIN_FREE || $age > $MAX_AGE) {
+	    print STDERR "Nuking\n";
+	    remove_tree($fn);
+	}
+    }
 }
 
 1;
